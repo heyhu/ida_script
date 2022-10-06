@@ -481,6 +481,26 @@
           print("parse error")
   ```
 
+  ```python
+  # python2
+  import idaapi
+  import binascii
+  
+  with open(r"/Users/xxxx/Downloads/backup.txt", "r")as F:
+      infos = F.readlines()
+  
+  for info in infos:
+      try:
+          info = info.strip().split(",")
+          decryptAddress = int(info[1].split(":")[1],16)
+          # decryptInfo = bytes.fromhex()
+          decryptInfo = binascii.a2b_hex(info[3].split(":")[1])
+          idaapi.patch_bytes(decryptAddress, decryptInfo)
+      except Exception as e:
+          print(e)
+          print("parse error")
+  ```
+
   运行后开始考虑字符串尚未识别的问题
 
   ![](pic/19.png)
@@ -566,7 +586,632 @@
 
   但从效果上说，汇编注释不如回填数据“好看”。关于注释，还有一个好玩的项目 [showcomments](https://github.com/merces/showcomments)，它可以方便的管理和查看所有的注释。
 
-  
+- 样本二(aweme)
 
+  打开 libmetasec_ml.so，找几个函数看看 ，我选择 sub_910C。
+
+  ```c
+  int sub_910C()
+  {
+      int v0; // r0
+      int v1; // r0
+      int v2; // r0
+      int v3; // r0
+      int v4; // r0
+      int v5; // r0
+      _DWORD *v6; // r0
+      int v7; // r0
+      int result; // r0
+      
+      sub_7DF68((int)&unk_B3DA0, (char *)&unk_99AF0);
+      _cxa_atexit((void (__fastcall *)(void *))sub_7E06C, &unk_B3DA0, &off_B3000);
+      if ( !dword_B3D90 )
+      {
+          v0 = operator new[](3u);
+          *(_WORD *)v0 = 31575;
+          *(_BYTE *)(v0 + 2) = 127;
+          sub_77C04();
+          if ( !dword_B3D90 )
+              dword_B3D90 = v1;
+      }
+      dword_B3D80 = dword_B3D90;
+      if ( !dword_B3D94 )
+      {
+          v2 = operator new[](0xAu);
+          *(_DWORD *)v2 = -381345581;
+          *(_DWORD *)(v2 + 4) = -2117098656;
+          *(_WORD *)(v2 + 8) = 4252;
+          sub_7715C();
+          if ( !dword_B3D94 )
+              dword_B3D94 = v3;
+      }
+      dword_B3D84 = dword_B3D94;
+      if ( !dword_B3D98 )
+      {
+          v4 = operator new[](0x12u);
+          *(_DWORD *)v4 = -105569581;
+          *(_DWORD *)(v4 + 4) = -2107694256;
+          *(_DWORD *)(v4 + 8) = -1142931556;
+          *(_DWORD *)(v4 + 12) = -1676642288;
+          *(_WORD *)(v4 + 16) = 4756;
+          sub_7727C();
+          if ( !dword_B3D98 )
+              dword_B3D98 = v5;
+      }
+      dword_B3D88 = dword_B3D98;
+      if ( !dword_B3D9C )
+      {
+          v6 = (_DWORD *)operator new[](4u);
+          *v6 = -408875388;
+          v7 = sub_77698(v6, 4);
+          if ( !dword_B3D9C )
+              dword_B3D9C = v7;
+      }
+      result = dword_B3D9C;
+      dword_B3D8C = dword_B3D9C;
+      return result;
+  }
+  ```
+
+  其中有四段是字符串以及其解密操作
+
+  ```c
+  // part1
+  v0 = operator new[](3u);
+  *(_WORD *)v0 = 31575;
+  *(_BYTE *)(v0 + 2) = 127;
+  sub_77C04();
   
+  // part2
+  v2 = operator new[](0xAu);
+  *(_DWORD *)v2 = -381345581;
+  *(_DWORD *)(v2 + 4) = -2117098656;
+  *(_WORD *)(v2 + 8) = 4252;
+  sub_7715C();
+  
+  // part3
+  v4 = operator new[](0x12u);
+  *(_DWORD *)v4 = -105569581;
+  *(_DWORD *)(v4 + 4) = -2107694256;
+  *(_DWORD *)(v4 + 8) = -1142931556;
+  *(_DWORD *)(v4 + 12) = -1676642288;
+  *(_WORD *)(v4 + 16) = 4756;
+  sub_7727C();
+  
+  // part4
+  v6 = (_DWORD *)operator new[](4u);
+  *v6 = -408875388;
+  v7 = sub_77698(v6, 4);
+  ```
+
+  这所谓的字符串解密，似乎和前面的都不太一样。sub_7727C 等四个解密函数的参数和返回值没有正确识别，这一定程度影响了大家的理解。读者换个 IDA 版本试一下，或者用 Ghidra 就可以看到比较好的反编译效果，比如下面是 Ghidra 对该函数的反编译效果。（需要注意，Ghidra 在 ARM32 中默认基地址 0x10000，ARM64 中默认基地址 0x100000，因此如下 FUN_00087c04 就是 IDA 中 _77C04。）
+
+  ```
+  {
+    undefined2 *puVar1;
+    int iVar2;
+    undefined4 *puVar3;
+    
+    FUN_0008df68(&DAT_000c3da0,&DAT_000a9af0);
+    __cxa_atexit(FUN_0008e06c + 1,&DAT_000c3da0,&DAT_000c3000);
+    if (DAT_000c3d90 == 0) {
+      puVar1 = (undefined2 *)operator.new[](3);
+      *puVar1 = 0x7b57;
+      *(undefined *)(puVar1 + 1) = 0x7f;
+      iVar2 = FUN_00087c04(puVar1,3);
+      if (DAT_000c3d90 == 0) {
+        DAT_000c3d90 = iVar2;
+      }
+    }
+    DAT_000c3d80 = DAT_000c3d90;
+    if (DAT_000c3d94 == 0) {
+      puVar3 = (undefined4 *)operator.new[](10);
+      *puVar3 = 0xe94520d3;
+      puVar3[1] = 0x81cfa360;
+      *(undefined2 *)(puVar3 + 2) = 0x109c;
+      iVar2 = FUN_0008715c(puVar3,10);
+      if (DAT_000c3d94 == 0) {
+        DAT_000c3d94 = iVar2;
+      }
+    }
+    DAT_000c3d84 = DAT_000c3d94;
+    if (DAT_000c3d98 == 0) {
+      puVar3 = (undefined4 *)operator.new[](0x12);
+      *puVar3 = 0xf9b522d3;
+      puVar3[1] = 0x825f2350;
+      puVar3[2] = 0xbbe03f9c;
+      puVar3[3] = 0x9c107810;
+      *(undefined2 *)(puVar3 + 4) = 0x1294;
+      iVar2 = FUN_0008727c(puVar3,0x12);
+      if (DAT_000c3d98 == 0) {
+        DAT_000c3d98 = iVar2;
+      }
+    }
+    DAT_000c3d88 = DAT_000c3d98;
+    if (DAT_000c3d9c == 0) {
+      puVar3 = (undefined4 *)operator.new[](4);
+      *puVar3 = 0xe7a10e84;
+      iVar2 = FUN_00087698(puVar3,4);
+      if (DAT_000c3d9c == 0) {
+        DAT_000c3d9c = iVar2;
+      }
+    }
+    DAT_000c3d8c = DAT_000c3d9c;
+    return;
+  }
+  ```
+
+  我们拿 part3 举例
+
+  ```c
+  // IDA
+  if ( !dword_B3D98 )
+  {
+      v4 = operator new[](0x12u);
+      *(_DWORD *)v4 = -105569581;
+      *(_DWORD *)(v4 + 4) = -2107694256;
+      *(_DWORD *)(v4 + 8) = -1142931556;
+      *(_DWORD *)(v4 + 12) = -1676642288;
+      *(_WORD *)(v4 + 16) = 4756;
+      sub_7727C();
+      if ( !dword_B3D98 )
+          dword_B3D98 = v5;
+  }
+  
+  // Ghidra 
+  if (DAT_000c3d98 == 0) {
+      puVar3 = (undefined4 *)operator.new[](0x12);
+      *puVar3 = 0xf9b522d3;
+      puVar3[1] = 0x825f2350;
+      puVar3[2] = 0xbbe03f9c;
+      puVar3[3] = 0x9c107810;
+      *(undefined2 *)(puVar3 + 4) = 0x1294;
+      iVar2 = FUN_0008727c(puVar3,0x12);
+      if (DAT_000c3d98 == 0) {
+          DAT_000c3d98 = iVar2;
+      }
+  }
+  ```
+
+  sub_7727C 应该有两个参数，可以根据 Ghidra 的结果对 IDA 的函数定义做修正
+
+  ![](pic/25.png)
+
+  ![](pic/26.png)
+
+  四个解密函数都这么做后，看起来好多了
+
+  ```c
+  int sub_910C()
+  {
+    int v0; // r0
+    int v1; // r0
+    int v2; // r0
+    int v3; // r0
+    int v4; // r0
+    int v5; // r0
+    _DWORD *v6; // r0
+    int v7; // r0
+    int result; // r0
+  
+    sub_7DF68((int)&unk_B3DA0, (char *)&unk_99AF0);
+    _cxa_atexit((void (__fastcall *)(void *))sub_7E06C, &unk_B3DA0, &off_B3000);
+    if ( !dword_B3D90 )
+    {
+      v0 = operator new[](3u);
+      *(_WORD *)v0 = 31575;
+      *(_BYTE *)(v0 + 2) = 127;
+      v1 = sub_77C04(v0, 3);
+      if ( !dword_B3D90 )
+        dword_B3D90 = v1;
+    }
+    dword_B3D80 = dword_B3D90;
+    if ( !dword_B3D94 )
+    {
+      v2 = operator new[](0xAu);
+      *(_DWORD *)v2 = -381345581;
+      *(_DWORD *)(v2 + 4) = -2117098656;
+      *(_WORD *)(v2 + 8) = 4252;
+      v3 = sub_7715C(v2, 10);
+      if ( !dword_B3D94 )
+        dword_B3D94 = v3;
+    }
+    dword_B3D84 = dword_B3D94;
+    if ( !dword_B3D98 )
+    {
+      v4 = operator new[](0x12u);
+      *(_DWORD *)v4 = -105569581;
+      *(_DWORD *)(v4 + 4) = -2107694256;
+      *(_DWORD *)(v4 + 8) = -1142931556;
+      *(_DWORD *)(v4 + 12) = -1676642288;
+      *(_WORD *)(v4 + 16) = 4756;
+      v5 = sub_7727C(v4, 18);
+      if ( !dword_B3D98 )
+        dword_B3D98 = v5;
+    }
+    dword_B3D88 = dword_B3D98;
+    if ( !dword_B3D9C )
+    {
+      v6 = (_DWORD *)operator new[](4u);
+      *v6 = -408875388;
+      sub_77698((int)v6, 4);
+      if ( !dword_B3D9C )
+        dword_B3D9C = v7;
+    }
+    result = dword_B3D9C;
+    dword_B3D8C = dword_B3D9C;
+    return result;
+  }
+  ```
+
+  解密函数的参数 1 是指向密文字符串的指针，参数 2 是长度。首先，我们前面接触的几个样例中，字符串密文存放在 SO 的段上，而这个样本用 operator new[] 分配了堆内存用来存放密文。在这些糟糕的数字上按 H，转成十六进制，看起来会清晰很多。
+
+  ```c
+  v2 = operator new[](0xAu);
+  *(_DWORD *)v2 = 0xE94520D3;
+  *(_DWORD *)(v2 + 4) = 0x81CFA360;
+  *(_WORD *)(v2 + 8) = 0x109C;
+  v3 = sub_7715C(v2, 10);
+  ```
+
+  本质上就是存储了  D3 20 45 E9 60 A3 CF 81 9C 10 这十个字节，找第二个让我们晦涩的点——就是这儿的字符串解密函数，先前的例子只有一个字符串解密函数，这个样本至少有四个。不必对此感到忧虑，复杂的样本中，甚至可以让加密字符串和解密函数实现一对一，但这并不是什么大不了的事。
+
+  第三个点是解密函数的具体逻辑，大家点进去解密函数，会感觉很复杂，不用管它看起来多复杂，对于我们 Hook 回填没影响，不管多复杂，真机能执行就行。
+
+  第四个点，解密后的明文放在哪儿？解密函数看不太真切，Frida Hook 分析会发现，解密明文覆盖了密文。
+
+  下面我们准备写 Hook 回填脚本，首先验证这四个解密函数，是否真是解密函数？
+
+  ```js
+  function hookInit(){
+      var linkername;
+      var alreadyHook = false;
+      var call_constructor_addr = null;
+      var arch = Process.arch;
+      if (arch.endsWith("arm")) {
+          linkername = "linker";
+      } else {
+          linkername = "linker64";
+      }
+      
+      var symbols = Module.enumerateSymbolsSync(linkername);
+      for (var i = 0; i < symbols.length; i++) {
+          var symbol = symbols[i];
+          if (symbol.name.indexOf("call_constructor") !== -1) {
+              call_constructor_addr = symbol.address;
+          }
+      }
+      
+      if (call_constructor_addr.compare(NULL) > 0) {
+          console.log("get construct address");
+          Interceptor.attach(call_constructor_addr, {
+              onEnter: function (args) {
+                  if(alreadyHook === false){
+                      const targetModule = Process.findModuleByName("libmetasec_ml.so");
+                      if (targetModule !== null) {
+                          alreadyHook = true;
+                          inittodo();
+                      }
+                  }
+              }
+          });
+      }
+  }
+  
+  function inittodo(){
+      hook_decrypt();
+  }
+  
+  
+  function hook_decrypt(){
+      var base_addr = Module.findBaseAddress("libmetasec_ml.so");
+      
+      Interceptor.attach(base_addr.add(0x77c05), {
+          onEnter(args) {
+          },
+          onLeave(retval) {
+              console.log(retval.readCString());
+          }
+      });
+      
+      Interceptor.attach(base_addr.add(0x7715d), {
+          onEnter(args) {
+          },
+          onLeave(retval) {
+              console.log(retval.readCString());
+          }
+      });
+      
+      Interceptor.attach(base_addr.add(0x7727d), {
+          onEnter(args) {
+          },
+          onLeave(retval) {
+              console.log(retval.readCString());
+          }
+      });
+      
+      Interceptor.attach(base_addr.add(0x77699), {
+          onEnter(args) {
+          },
+          onLeave(retval) {
+              console.log(retval.readCString());
+          }
+      });
+  }
+  
+  
+  hookInit();
+  ```
+
+  运行发现，确实打印了大量的明文字符串，其中包括一些明显是环境检测的字符串
+
+  ```powershell
+  /data/data/yk.juejin
+  /data/data/com.cyjh.mobileanjian
+  /data/data/com.cyjh.mobileanjianen
+  /data/data/com.touchsprite.android
+  /data/data/net.aisence.Touchelper
+  /data/data/com.touch.fairy
+  /data/data/com.zdanjian.zdanjian
+  /data/data/simplehat.clicker
+  /system/xbin/su
+  /system/bin/shuamesu
+  /system/xbin/daemonsu
+  /system/bin/bdsu
+  /system/xbin/bdsu
+  /system/bin/.su
+  /system/xbin/ku.sud
+  /system/xbin/bstk/su
+  /system/bin/sudo
+  /sbin/su
+  /data/data/com.topjohnwu.magisk
+  /system/app/longeneroot.apk
+  /system/app/Supersupro/Supersupro.apk
+  /data/data/com.kingroot.kinguser
+  /data/data/com.meizu.mzroottools
+  /data/data/com.devadvance.rootcloak2
+  /data/data/com.qihoo.permmgr
+  /data/data/com.baidu.easyroot
+  /data/data/hh.root
+  /data/data/com.shuame.rootgenius
+  /data/data/com.mtk.user2root
+  /sbin/magiskhide
+  /sbin/magiskinit
+  /sbin/.magisk
+  ```
+
+  但是 Hook 没过几秒钟 App 就会闪退，简单分析应该是有 Anti Frida。
+
+  解密函数 sub_7715C 的具体逻辑
+
+  ```c
+  def fun_7715C(barr, length):
+      result = ""
+      key = [0xA5, 0x10, 0x71, 0xC7, 0x50, 0x90, 0xE1, 0xB1]
+      for i in range(length):
+          tmp = barr[i] ^ key[i & 7]
+          result += chr(tmp)
+      return result
+  ```
+
+  以下面这处调用为例
+
+  ```c
+  v12 = operator new[](0x17u);
+  *(_DWORD *)v12 = 0xA61B5C8D;
+  *(_DWORD *)(v12 + 4) = 0xDDCEF126;
+  *(_DWORD *)(v12 + 8) = 0xE8167EC4;
+  *(_DWORD *)(v12 + 12) = 0xD893E403;
+  *(_WORD *)(v12 + 16) = 0x77CB;
+  *(_DWORD *)(v12 + 18) = 0xD20BEE4A;
+  *(_BYTE *)(v12 + 22) = 0xE1;
+  v13 = sub_7715C();
+  ```
+
+  ```python
+  print(fun_7715C(b"\x8D\x5C\x1B\xA6\x26\xF1\xCE\xDD\xC4\x7E\x16\xE8\x03\xE4\x93\xD8\xCB\x77\x4A\xEE\x0B\xD2\xE1", 0x17))
+  ```
+
+  输出`(Ljava/lang/String;)[B`。
+
+  解密函数 sub_77698 的具体逻辑
+
+  ```c
+  def fun_77698(barr, length):
+      result = ""
+      key = [0xb5, 0x20, 0x91, 0xe7, 0x40, 0xa0, 0xe3, 0xb6]
+      for i in range(length):
+          tmp = barr[i] ^ key[i & 7]
+          result += chr(tmp)
+      return result
+  ```
+
+  以下面这处调用为例，读者朋友们应该注意到，这里的反编译效果很差，数组被识别成数个变量。
+
+  ```c
+  v107 = 0xB3F544D4;
+  v108 = 0xC58DC132;
+  v109 = 0x93E34FC5;
+  v110 = 0xD393D914;
+  LOBYTE(v111) = 0xB5;
+  sub_77698((int)&v107, 17);
+  ```
+
+  测试
+
+  ```python
+  print(fun_77698(b"\xD4\x44\xF5\xB3\x32\xC1\x8D\xC5\xC5\x4F\xE3\x93\x14\xD9\x93\xD3\xB5", 17))
+  ```
+
+  输出`addTransportType`。
+
+- 样本3(树美)
+
+  交叉引用排第四的这个函数看着像字符串解密函数。
+
+  ```powershell
+  {'funcName': '.__stack_chk_fail', 'Address': '0x7760', 'xrefCount': 104}
+  {'funcName': '.free', 'Address': '0x7930', 'xrefCount': 102}
+  {'funcName': '.memset', 'Address': '0x78f0', 'xrefCount': 91}
+  {'funcName': 'sub_80D8', 'Address': '0x80d8', 'xrefCount': 77}
+  {'funcName': '.strlen', 'Address': '0x7890', 'xrefCount': 66}
+  {'funcName': 'sub_5D998', 'Address': '0x5d998', 'xrefCount': 65}
+  {'funcName': '.memcpy', 'Address': '0x78e0', 'xrefCount': 57}
+  {'funcName': 'sub_7FEC8', 'Address': '0x7fec8', 'xrefCount': 55}
+  {'funcName': 'sub_4C488', 'Address': '0x4c488', 'xrefCount': 45}
+  {'funcName': '.malloc', 'Address': '0x78d0', 'xrefCount': 36}
+  ```
+
+  调用处是这样
+
+  ```c
+  sub_80D8("UWRYubYl2XXvaG3S9r5ezWcxX/VsRigluNW58+nIYq4=", 44LL);
+  ```
+
+  介绍这个例子的原因在于，前面所展示的样本，字符串解密函数都是简单异或或变形的异或（dy 除外），读者不应该因此认为，字符串加解密总是使用简单算法。事实上，加解密可以采用任意一种可逆的古典或现代算法。我们看到很多字符串加解密使用异或，仅仅是因为异或简单好用以及最常用的几种字符串混淆方案使用异或。
+
+  下面首先确认是否是解密算法， Frida Hook 测试一下
+
+  ```js
+  function hookInit(){
+    var linkername;
+    var alreadyHook = false;
+    var call_constructor_addr = null;
+    var arch = Process.arch;
+    if (arch.endsWith("arm")) {
+      linkername = "linker";
+    } else {
+      linkername = "linker64";
+    }
+    
+    var symbols = Module.enumerateSymbolsSync(linkername);
+    for (var i = 0; i < symbols.length; i++) {
+      var symbol = symbols[i];
+      if (symbol.name.indexOf("call_constructor") !== -1) {
+        call_constructor_addr = symbol.address;
+      }
+    }
+    
+    if (call_constructor_addr.compare(NULL) > 0) {
+      console.log("get construct address");
+      Interceptor.attach(call_constructor_addr, {
+        onEnter: function (args) {
+          if(alreadyHook === false){
+            const targetModule = Process.findModuleByName("libsmsdk.so");
+            if (targetModule !== null) {
+              alreadyHook = true;
+              inittodo();
+            }
+          }
+        }
+      });
+    }
+  }
+  
+  function inittodo(){
+    hook_sub_80D8();
+  }
+  
+  
+  function hook_sub_80D8(){
+    var base_addr = Module.findBaseAddress("libsmsdk.so");
+    
+    Interceptor.attach(base_addr.add(0x80d8), {
+      onEnter(args) {
+        
+      },
+      onLeave(retval) {
+        console.log(retval.readCString());
+      }
+    });
+  }
+  
+  hookInit();
+  ```
+
+  ```shell
+  ro.serialno
+  ro.build.fingerprint
+  /system/bin/su
+  /system/xbin/su
+  /proc/self/maps
+  substrate
+  XposedBridge.jar
+  /system/bin/ls
+  arm64-v8a
+  [{"key":"maps2","type":"file","path":"file:///proc/self/maps","option":"regex","words":["/data/.+\\.so"]},{"key":"wlan0","type":"dir","path":"file:///sys/class/net/wlan0","option":"exists"},{"key":"eth0","typ
+  e":"dir","path":"file:///sys/class/net/eth0","option":"exists"},{"key":"iomem","type":"file","path":"file:///proc/iomem","option":"match","words":["qemu-pipe","goldfish","vbox"]},{"key":"misc","type":"file","
+  path":"file:///proc/misc","option":"match","words":["vbox","qemu"]},{"key":"hnf1","type":"file","path":"file:///sdcard/user","option":"exists"},{"key":"hnf2","type":"file","path":"file:///data/local/tmp/user"
+  ,"option":"exists"},{"key":"hnf3","type":"file","path":"file:///sdcard/fenshen/device.zip","option":"exists"},{"key":"hnf4","type":"dir","path":"file:///data/local/tmp/configs","option":"exists"},{"key":"hnf5
+  ","type":"file","path":"file:///sdcard/fenshen/xiansi.json","option":"exists"},{"key":"hnf6","type":"file","path":"file:///sdcard/fenshen/gps.json","option":"exists"},{"key":"hnf7","type":"file","path":"file:
+  ///data/local/tmp/configs/.a","option":"exists"},{"key":"hnf8","type":"file","path":"file:///data/local/tmp/configs/.d","option":"exists"},{"key":"hnf9","type":"file","path":"file:///data/local/tmp/configs/.e
+  n","option":"exists"},{"key":"hnf10","type":"file","path":"file:///data/local/tmp/configs/.gg","option":"exists"},{"key":"hnf11","type":"file","path":"file:///data/local/tmp/configs/.me","option":"exists"},{"
+  key":"vgd1","type":"dir","path":"file:///sdcard/wgzs","option":"exists"},{"key":"vgd2","type":"dir","path":"file:///dev/wgzs","option":"exists"},{"key":"sbsf1","type":"file","path":"file:///proc/self/maps","o
+  ption":"match","words":["/system/framework/ZpoosedBridge.jar"]},{"key":"sbsf2","type":"file","path":"file:///data/user_de/0/zpp.wjy.zposed.installer","option":"exists"},{"key":"sbsf3","type":"file","path":"fi
+  le:///data/data/zpp.wjy.zposed.installer","option":"exists"}]
+  ```
+
+  我们确认它是字符串解密函数，其次，解密函数只调用几十次，相较于其他样本，这个数量非常少。但是，其他样本中，每次解密只解密一条明文，而这个样本的单次解密中，有时会解密大的字符串表。
+
+  下面具体分析字符串解密算法，使用Unidbg做处理会很方便，下面是简单的架子，大家可以用星球先前教过的各种技巧与知识去分析这个算法。
+
+  ```java
+  package com.sm;
+  
+  import com.github.unidbg.AndroidEmulator;
+  import com.github.unidbg.LibraryResolver;
+  import com.github.unidbg.Module;
+  import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
+  import com.github.unidbg.linux.android.AndroidResolver;
+  import com.github.unidbg.linux.android.dvm.DalvikModule;
+  import com.github.unidbg.linux.android.dvm.VM;
+  import com.github.unidbg.memory.Memory;
+  import com.github.unidbg.memory.MemoryBlock;
+  import com.github.unidbg.pointer.UnidbgPointer;
+  
+  import java.io.File;
+  import java.nio.charset.StandardCharsets;
+  
+  public class SM {
+      private final AndroidEmulator emulator;
+      private final VM vm;
+      private final Module module;
+      
+      private SM(){
+          emulator = AndroidEmulatorBuilder.for64Bit().build(); // 创建模拟器实例
+          
+          Memory memory = emulator.getMemory();
+          
+          // 设置sdk版本
+          LibraryResolver resolver = new AndroidResolver(23);
+          // 加载到内存中
+          memory.setLibraryResolver(resolver);
+          
+          vm = emulator.createDalvikVM(new File("unidbg-android/src/test/resources/sm/bixin_8.7.3.apk"));
+          // 是否打印日志
+          vm.setVerbose(true);
+          DalvikModule dm = vm.loadLibrary("smsdk", true);
+          module = dm.getModule();
+      }
+      
+      public static void main(String[] args) {
+          SM sm = new SM();
+          sm.callDecrypt();
+      }
+      
+      public void callDecrypt(){
+          int length = 44;
+          MemoryBlock memoryBlock = emulator.getMemory().malloc(length + 1, true);
+          memoryBlock.getPointer().write(0, "UWRYubYl2XXvaG3S9r5ezWcxX/VsRigluNW58+nIYq4=\0".getBytes(StandardCharsets.UTF_8), 0 , length+1);
+          UnidbgPointer pointer = memoryBlock.getPointer();
+          Number number = module.callFunction(emulator, 0x80d8, pointer.peer, length);
+          UnidbgPointer ret = UnidbgPointer.pointer(emulator, number);
+          // result:/proc/self/maps
+          System.out.println("result:"+ret.getString(0));
+      }
+      
+  }
+  ```
+
+  密文首先做 base64 解码，然后经过AES - 256 解密，模式为 CBC，IV 是固定的 0102030405060708 字符串，Key 是对字符串 "smsdkshumeiorganizationflag" MD5 后的结果。
 
